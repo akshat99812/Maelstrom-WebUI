@@ -1,29 +1,22 @@
 "use client"
 
 import { SmallSparkline } from "@/components/ui/SmallSparkline"
-import type { PoolMock } from "@/types/pool"
+import type { RowPool } from "@/types/pool"
 import { formatCurrency, formatPercentage } from "@/types/pool"
 import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 
 interface TokenRowProps {
-  token: PoolMock;
+  poolToken: RowPool;
 }
 
-export function TokenRow({ token }: TokenRowProps) {
-  const {
-    slug,
-    symbol,
-    name,
-    logoUrl,
-    priceUSD,
-    liquidityUSD,
-  } = token
+export function TokenRow({ poolToken }: TokenRowProps) {
+  const {token, buyPrice, sellPrice, totalLiquidity} = poolToken;
 
   // Calculate ETH prices based on USD price (assuming 1 ETH = $3000 for this example)
   const ETH_PRICE_USD = 3000
-  const buyPriceETH = (priceUSD / ETH_PRICE_USD) * 1.02 // Adding 2% spread for buy price
-  const liquidityETH = liquidityUSD / ETH_PRICE_USD
+  const buyPriceETH = (Number(buyPrice) / ETH_PRICE_USD) * 1.02 // Adding 2% spread for buy price
+  const liquidityETH = Number(totalLiquidity) / ETH_PRICE_USD
   
   // Format timestamp to show only the highest unit
   const formatTimestamp = (ts: number) => {
@@ -39,7 +32,7 @@ export function TokenRow({ token }: TokenRowProps) {
   }
 
   return (
-    <Link href={`/tokens/${slug}`}>
+    <Link href={`/tokens/${token.symbol}`}>
       <div className="group relative p-4 rounded-lg backdrop-blur-sm border border-white/[0.05] 
         hover:border-accent/20 transition-all duration-300
         before:absolute before:inset-0 before:bg-background-800/30 before:-z-10">
@@ -47,13 +40,10 @@ export function TokenRow({ token }: TokenRowProps) {
           {/* Token Logo */}
           <div className="relative h-10 w-10">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-accent/10 to-primary-500/10" />
-            <div className="absolute inset-0 rounded-full backdrop-blur-sm overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoUrl}
-                alt={symbol}
-                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-300"
-              />
+            <div className="absolute inset-0 rounded-full backdrop-blur-sm overflow-hidden flex items-center justify-center bg-gradient-to-br from-accent/20 to-primary-500/20">
+              <span className="text-lg font-bold text-white/90">
+              {token.symbol.charAt(0)}
+              </span>
             </div>
           </div>
 
@@ -61,9 +51,9 @@ export function TokenRow({ token }: TokenRowProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-transparent bg-clip-text bg-gradient-to-r from-white to-white/90">
-                {symbol}
+                {token.symbol}
               </span>
-              <span className="text-sm text-muted-foreground/60">{name}</span>
+              <span className="text-sm text-muted-foreground/60">{token.name}</span>
             </div>
             <div className="mt-1 flex items-center gap-4">
               <span className="text-sm text-muted-foreground/70">

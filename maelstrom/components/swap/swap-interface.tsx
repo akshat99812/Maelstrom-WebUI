@@ -23,12 +23,6 @@ interface SwapState {
 }
 
 export function SwapInterface() {
-  const [swapState, setSwapState] = useState<SwapState>({
-    tokenIn: undefined,
-    tokenOut: undefined,
-    amountIn: "",
-    amountOut: "",
-  });
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const contractClient = new ContractClient(
@@ -36,6 +30,12 @@ export function SwapInterface() {
     writeContractAsync,
     publicClient
   );
+  const [swapState, setSwapState] = useState<SwapState>({
+    tokenIn: undefined,
+    tokenOut: undefined,
+    amountIn: "",
+    amountOut: "",
+  });
   const [showPreview, setShowPreview] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [exchangeRate, setExchangeRate] = useState<bigint>(BigInt(0));

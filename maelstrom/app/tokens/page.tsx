@@ -3,7 +3,6 @@
 import { Header } from "@/components/header";
 import { TokenList } from "@/components/tokens/TokenList";
 import { Card, CardContent } from "@/components/ui/card";
-import { usePools } from "@/hooks/use-pools";
 
 export default function TokensPage() {
   return (

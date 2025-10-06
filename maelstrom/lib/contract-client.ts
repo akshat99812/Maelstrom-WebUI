@@ -787,4 +787,32 @@ export class ContractClient implements IContractClient {
             throw new Error(`Error fetching pools: ${(error as Error).message}`);
         }
     }
+
+    async getPoolCount() : Promise<number> {
+        try {
+            const data = await this.publicClient?.readContract({
+                address: this.contractAddress,
+                abi: ABI,
+                functionName: 'getTotalPools',
+                args: []
+            })
+            return Number(data);
+        } catch (error) {
+           throw new Error(`Error fetching pool count: ${(error as Error).message}`); 
+        }
+    }
+
+    async getUserPoolCount(user: Address) : Promise<number> {
+        try {
+            const data = await this.publicClient?.readContract({
+                address: this.contractAddress,
+                abi: ABI,
+                functionName: 'getUserTotalPools',
+                args: [user]
+            })
+            return Number(data);
+        } catch (error) {
+           throw new Error(`Error fetching user pool count: ${(error as Error).message}`); 
+        }
+    }
 }

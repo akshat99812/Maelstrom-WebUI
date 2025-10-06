@@ -29,7 +29,6 @@ export function BuyForm() {
   const [isSwapping, setIsSwapping] = useState(false);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [buyPrice, setBuyPrice] = useState<bigint>(BigInt(0));
-  const { executeBuy, loading } = useTrade();
   const { toast } = useToast();
   const [token, setToken] = useState<Token | undefined>(undefined);
 
@@ -205,13 +204,13 @@ export function BuyForm() {
 
       <Button
         onClick={handlePreview}
-        disabled={!ethAmount || !tokenAmount || loading}
+        disabled={!ethAmount || !tokenAmount || isSwapping || isFetchingRates}
         className="w-full h-14 mt-6 bg-gradient-to-r from-accent-cyan to-primary-500 hover:from-accent-cyan/90 hover:to-primary-500/90 
           text-white font-semibold rounded-xl shadow-lg hover:shadow-accent-cyan/25 transition-all duration-300 
           disabled:from-gray-600/50 disabled:to-gray-700/50 disabled:cursor-not-allowed disabled:text-white/50
           border border-white/[0.05] backdrop-blur-sm font-plus-jakarta text-base"
       >
-        {loading ? (
+        {(isSwapping || isFetchingRates) ? (
           <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/20 border-t-white" />
         ) : (
           `Preview Buy`
@@ -226,7 +225,7 @@ export function BuyForm() {
         tokenOut={token}
         amountIn={ethAmount}
         amountOut={tokenAmount}
-        loading={loading}
+        loading={isSwapping}
       />
     </div>
   );
