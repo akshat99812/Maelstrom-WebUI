@@ -1,268 +1,151 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LiquidityPreviewModal } from "./liquidity-preview-modal";
 import { useToast } from "@/hooks/use-toast";
-import { ETH, ETH_MOCK, Token } from "@/lib/mock-api";
+import { LiquidityPoolToken, Token } from "@/types/token";
+import { usePublicClient, useWriteContract } from "wagmi";
+import { ContractClient } from "@/lib/contract-client";
+import { CONTRACT_ADDRESS } from "@/types/contract";
+import { Reserve } from "@/types/pool";
+import { parseEther } from "viem";
 
 interface LiquidityActionsProps {
-  token: Token | ETH;
-  tokenBalance: string;
-  ethBalance: string;
-  lpTokenBalance: string;
-  totalLpSupply?: string;
+  token: Token;
+  lpToken: LiquidityPoolToken;
+  reserve: Reserve;
+  poolRatio: number; //token/eth
 }
 
 export function LiquidityActions({
-  token = ETH_MOCK,
-  tokenBalance = "0",
-  ethBalance = "0",
-  lpTokenBalance = "0",
-  totalLpSupply = "1000",
+  token,
+  reserve,
+  lpToken,
+  poolRatio,
 }: LiquidityActionsProps) {
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+  const contractClient = new ContractClient(
+    CONTRACT_ADDRESS,
+    writeContractAsync,
+    publicClient
+  );
   const [tokenAmount, setTokenAmount] = useState("");
   const [ethAmount, setEthAmount] = useState("");
   const [lpAmount, setLpAmount] = useState("");
-  const [lpInputAmount, setLpInputAmount] = useState(""); // For Add Liquidity LP input
-  const [removeTokenAmount, setRemoveTokenAmount] = useState(""); // For Remove Liquidity token input
-  const [removeEthAmount, setRemoveEthAmount] = useState(""); // For Remove Liquidity eth input
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentTab, setCurrentTab] = useState<"add" | "remove">("add");
   const { toast } = useToast();
 
-  // Mock pool ratio: 1 ETH = 3200 tokens (example)
-  const poolRatio = 3200;
-  const totalEthReserve = 500; // Mock total ETH in pool
-  const totalTokenReserve = totalEthReserve * poolRatio;
-
-  // Calculate proportional amounts for Add Liquidity
   const handleTokenAmountChange = useCallback(
     (value: string) => {
       setTokenAmount(value);
-      setLpInputAmount(""); // Clear LP input when manually entering token amount
-      const tokenNum = parseFloat(value) || 0;
-      const proportionalEth = (tokenNum / poolRatio).toFixed(6);
-      setEthAmount(proportionalEth);
+      const ethAmount = Number(value) / Number(poolRatio);
+      const proportion = Number(value) / Number(reserve.tokenReserve);
+      const lpTokenAmount = proportion * Number(lpToken.totalSupply);
+      setEthAmount(ethAmount.toFixed(3));
+      setLpAmount(lpTokenAmount.toFixed(3));
     },
-    [poolRatio]
+    [reserve, poolRatio, lpToken.totalSupply]
   );
 
   const handleEthAmountChange = useCallback(
     (value: string) => {
       setEthAmount(value);
-      setLpInputAmount(""); // Clear LP input when manually entering ETH amount
-      const ethNum = parseFloat(value) || 0;
-      const proportionalToken = (ethNum * poolRatio).toFixed(6);
-      setTokenAmount(proportionalToken);
+      const tokenAmount = Number(value) * Number(poolRatio);
+      const proportion = Number(value) / Number(reserve.ethReserve);
+      const lpTokenAmount = proportion * Number(lpToken.totalSupply);
+      setTokenAmount(tokenAmount.toFixed(3));
+      setLpAmount(lpTokenAmount.toFixed(3));
     },
-    [poolRatio]
+    [reserve, poolRatio, lpToken.totalSupply]
   );
 
   const handleLpAmountChange = useCallback(
     (value: string) => {
-      setLpInputAmount(value);
-      const lpNum = parseFloat(value) || 0;
-      if (lpNum === 0) {
-        setTokenAmount("");
-        setEthAmount("");
-        return;
-      }
-
-      // Calculate required ETH and tokens based on LP amount
-      const poolShareRatio = lpNum / parseFloat(totalLpSupply);
-      const requiredEth = (totalEthReserve * poolShareRatio).toFixed(6);
-      const requiredToken = (totalTokenReserve * poolShareRatio).toFixed(6);
-
-      setEthAmount(requiredEth);
-      setTokenAmount(requiredToken);
+      setLpAmount(value);
+      const proportion = Number(value) / Number(lpToken.totalSupply);
+      const ethAmount = proportion * Number(reserve.ethReserve);
+      const tokenAmount = proportion * Number(reserve.tokenReserve);
+      setEthAmount(ethAmount.toFixed(3));
+      setTokenAmount(tokenAmount.toFixed(3));
     },
-    [totalEthReserve, totalTokenReserve, totalLpSupply]
+    [reserve, lpToken.totalSupply]
   );
 
-  // Handle remove liquidity token amount changes
-  const handleRemoveTokenAmountChange = useCallback(
-    (value: string) => {
-      setRemoveTokenAmount(value);
-      const tokenNum = parseFloat(value) || 0;
-      if (tokenNum === 0) {
-        setLpAmount("");
-        setRemoveEthAmount("");
-        return;
-      }
-
-      // Calculate required LP and proportional ETH based on token amount
-      const tokenShareRatio = tokenNum / totalTokenReserve;
-      const requiredLp = (parseFloat(totalLpSupply) * tokenShareRatio).toFixed(
-        4
-      );
-      const proportionalEth = (tokenNum / poolRatio).toFixed(6);
-
-      setLpAmount(requiredLp);
-      setRemoveEthAmount(proportionalEth);
-    },
-    [totalTokenReserve, totalLpSupply, poolRatio]
-  );
-
-  // Handle remove liquidity ETH amount changes
-  const handleRemoveEthAmountChange = useCallback(
-    (value: string) => {
-      setRemoveEthAmount(value);
-      const ethNum = parseFloat(value) || 0;
-      if (ethNum === 0) {
-        setLpAmount("");
-        setRemoveTokenAmount("");
-        return;
-      }
-
-      // Calculate required LP and proportional token based on ETH amount
-      const ethShareRatio = ethNum / totalEthReserve;
-      const requiredLp = (parseFloat(totalLpSupply) * ethShareRatio).toFixed(4);
-      const proportionalToken = (ethNum * poolRatio).toFixed(6);
-
-      setLpAmount(requiredLp);
-      setRemoveTokenAmount(proportionalToken);
-    },
-    [totalEthReserve, totalLpSupply, poolRatio]
-  );
-
-  // Calculate LP tokens to be minted
-  const calculatedLpTokens = useMemo(() => {
-    // If LP input is provided, use that
-    if (lpInputAmount && parseFloat(lpInputAmount) >= 0) {
-      return lpInputAmount;
-    }
-
-    // Otherwise calculate from ETH amount
-    const ethNum = parseFloat(ethAmount) || 0;
-    if (ethNum === 0) return "0.0";
-    const lpMinted = (ethNum / totalEthReserve) * parseFloat(totalLpSupply);
-    return lpMinted.toFixed(4);
-  }, [ethAmount, lpInputAmount, totalEthReserve, totalLpSupply]);
-
-  // Calculate tokens to receive when removing liquidity
-  const calculatedTokensToReceive = useMemo(() => {
-    // If manual token amounts are provided, use those
-    if (removeTokenAmount || removeEthAmount) {
-      return {
-        token: removeTokenAmount || "0.0",
-        eth: removeEthAmount || "0.0",
-      };
-    }
-
-    // Otherwise calculate from LP amount
-    const lpNum = parseFloat(lpAmount) || 0;
-    if (lpNum === 0) return { token: "0.0", eth: "0.0" };
-
-    const poolShareRatio = lpNum / parseFloat(totalLpSupply);
-    const ethToReceive = (totalEthReserve * poolShareRatio).toFixed(6);
-    const tokenToReceive = (totalTokenReserve * poolShareRatio).toFixed(6);
-
-    return { token: tokenToReceive, eth: ethToReceive };
-  }, [
-    lpAmount,
-    removeTokenAmount,
-    removeEthAmount,
-    totalLpSupply,
-    totalEthReserve,
-    totalTokenReserve,
-  ]);
-
-  const setMaxLp = useCallback(() => {
-    setLpAmount(lpTokenBalance);
-    // Clear manual token inputs when setting max LP
-    setRemoveTokenAmount("");
-    setRemoveEthAmount("");
-  }, [lpTokenBalance]);
-
-  const handlePreviewAdd = useCallback(() => {
-    if (
-      !tokenAmount ||
-      !ethAmount ||
-      parseFloat(tokenAmount) === 0 ||
-      parseFloat(ethAmount) === 0
-    ) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter amounts to add liquidity",
-      });
-      return;
-    }
-
-    // Validate against balances
-    if (parseFloat(tokenAmount) > parseFloat(tokenBalance)) {
-      toast({
-        title: "Insufficient Balance",
-        description: `You only have ${tokenBalance} ${token}`,
-      });
-      return;
-    }
-
-    if (parseFloat(ethAmount) > parseFloat(ethBalance)) {
-      toast({
-        title: "Insufficient Balance",
-        description: `You only have ${ethBalance} ETH`,
-      });
-      return;
-    }
-
-    setLpAmount(calculatedLpTokens); // Clear LP input for fresh calculation
-    setCurrentTab("add");
-    setShowPreview(true);
-  }, [tokenAmount, ethAmount, tokenBalance, ethBalance, token, toast]);
-
-  const handlePreviewRemove = useCallback(() => {
-    if (!lpAmount || parseFloat(lpAmount) === 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter an amount to remove",
-      });
-      return;
-    }
-
-    if (parseFloat(lpAmount) > parseFloat(lpTokenBalance)) {
-      toast({
-        title: "Insufficient Balance",
-        description: `You only have ${lpTokenBalance} LP tokens`,
-      });
-      return;
-    }
-
-    setCurrentTab("remove");
-    setShowPreview(true);
-  }, [lpAmount, lpTokenBalance, toast]);
-
-  const handleConfirmLiquidity = async () => {
+  const handleLiquidityAdditon = async () => {
     setLoading(true);
     try {
-      // Add your liquidity transaction logic here
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Mock delay
-
+      const depositRequest = {
+        token: token,
+        tokenAmount: parseEther(tokenAmount).toString(),
+        ethAmount: parseEther(ethAmount).toString(),
+      };
+      const depositResult = await contractClient.deposit(depositRequest);
+      if (!depositResult.success) {
+        throw new Error(depositResult.error || "Deposit failed");
+      }
       toast({
-        title: "Success!",
-        description: `Liquidity ${
-          currentTab === "add" ? "added" : "removed"
-        } successfully`,
+        title: "Success",
+        description: `TxHash: ${depositResult.txHash}`,
       });
-      setShowPreview(false);
-
-      // Reset form
+      // Reset form after successful transaction
       setTokenAmount("");
       setEthAmount("");
       setLpAmount("");
-      setLpInputAmount("");
-      setRemoveTokenAmount("");
-      setRemoveEthAmount("");
+      setShowPreview(false);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to process liquidity operation",
       });
+      console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLiquidityRemoval = async () => {
+    setLoading(true);
+    try {
+      const withdrawRequest = {
+        token: token,
+        lpToken: lpToken,
+        lpTokenAmount: parseEther(lpAmount).toString(),
+      };
+      const withdrawResult = await contractClient.withdraw(withdrawRequest);
+      if (!withdrawResult.success) {
+        throw new Error(withdrawResult.error || "Deposit failed");
+      }
+      toast({
+        title: "Success",
+        description: `TxHash: ${withdrawResult.txHash}`,
+      });
+      // Reset form after successful transaction
+      setTokenAmount("");
+      setEthAmount("");
+      setLpAmount("");
+      setShowPreview(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to process liquidity operation",
+      });
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmLiquidity = async () => {
+    if (currentTab === "add") {
+      await handleLiquidityAdditon();
+    } else {
+      await handleLiquidityRemoval();
     }
   };
 
@@ -272,7 +155,7 @@ export function LiquidityActions({
       <div className="absolute inset-0 bg-gradient-to-br from-accent/[0.08] to-primary-500/[0.05]" />
       <div className="absolute inset-0 border border-white/[0.05] rounded-lg bg-gradient-to-b from-white/[0.05] to-transparent" />
       <CardContent className="relative w-full">
-        <Tabs defaultValue="add" className="w-full">
+        <Tabs defaultValue="add" onValueChange={(value) => setCurrentTab(value as "add" | "remove")} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4 bg-black/20 p-1 rounded-2xl backdrop-blur-md border border-white/[0.05]">
             <TabsTrigger
               value="add"
@@ -307,13 +190,15 @@ export function LiquidityActions({
                           {token.symbol.toUpperCase()[0]}
                         </span>
                       </div>
-                      <span className="text-sm font-medium">{token.symbol.toUpperCase()}</span>
+                      <span className="text-sm font-medium">
+                        {token.symbol.toUpperCase()}
+                      </span>
                     </div>
-                    <div className="text-right">
+                    {/* <div className="text-right">
                       <div className="text-xs text-foreground/60">
                         balance: {tokenBalance}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                   <input
                     type="text"
@@ -337,11 +222,11 @@ export function LiquidityActions({
                       </div>
                       <span className="text-sm font-medium">ETH</span>
                     </div>
-                    <div className="text-right">
+                    {/* <div className="text-right">
                       <div className="text-xs text-foreground/60">
                         balance: {ethBalance}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                   <input
                     type="text"
@@ -358,12 +243,12 @@ export function LiquidityActions({
               {/* Exchange Rate Display */}
               {(parseFloat(tokenAmount) > 0 ||
                 parseFloat(ethAmount) > 0 ||
-                parseFloat(calculatedLpTokens) > 0) && (
+                parseFloat(lpAmount) > 0) && (
                 <div className="text-center space-y-1 pt-2">
                   <div className="text-sm text-foreground/60">
-                    1 {token.symbol} = {(1 / poolRatio).toFixed(6)} ETH
+                    1 {token.symbol} = {poolRatio.toFixed(6)} ETH
                     <span className="mx-2">•</span>1 ETH ={" "}
-                    {poolRatio.toLocaleString()} {token.symbol}
+                    {(1 / poolRatio).toLocaleString()} {token.symbol}
                   </div>
                 </div>
               )}
@@ -387,14 +272,14 @@ export function LiquidityActions({
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-foreground/60">
-                      Total Supply: {totalLpSupply}
+                      Total Supply: {lpToken.totalSupply}
                     </div>
                   </div>
                 </div>
 
                 <input
                   type="text"
-                  value={calculatedLpTokens}
+                  value={lpAmount}
                   onChange={(e) => handleLpAmountChange(e.target.value)}
                   className="w-full h-16 text-2xl font-medium bg-black/10 rounded-xl px-4 
                     border border-white/[0.05] focus:border-accent-cyan/30 focus:ring-2 focus:ring-accent-cyan/20
@@ -402,11 +287,10 @@ export function LiquidityActions({
                   placeholder="0.0"
                 />
 
-                {calculatedLpTokens && parseFloat(calculatedLpTokens) > 0 && (
+                {lpAmount && parseFloat(lpAmount) > 0 && (
                   <div className="mt-3 text-xs text-foreground/60 text-center">
                     {(
-                      (parseFloat(calculatedLpTokens) /
-                        parseFloat(totalLpSupply)) *
+                      (parseFloat(lpAmount) / parseFloat(lpToken.totalSupply)) *
                       100
                     ).toFixed(3)}
                     % of pool
@@ -417,12 +301,15 @@ export function LiquidityActions({
 
             {/* Add Liquidity Button */}
             <Button
-              onClick={handlePreviewAdd}
               className="w-full h-14 bg-gradient-to-r from-accent-cyan to-primary-500 hover:from-accent-cyan/90 hover:to-primary-500/90 
                 text-white font-semibold rounded-xl shadow-lg hover:shadow-accent-cyan/25 transition-all duration-300 
                 disabled:from-gray-600/50 disabled:to-gray-700/50 disabled:cursor-not-allowed disabled:text-white/50
                 border border-white/[0.05] backdrop-blur-sm font-plus-jakarta text-base"
               variant="default"
+              onClick={() => {
+                setCurrentTab("add");
+                setShowPreview(true);
+              }}
               disabled={
                 !tokenAmount ||
                 !ethAmount ||
@@ -455,7 +342,7 @@ export function LiquidityActions({
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-foreground/60">
-                      LP Balance: {lpTokenBalance}
+                      LP Balance: {lpToken.balance}
                     </div>
                   </div>
                 </div>
@@ -463,10 +350,7 @@ export function LiquidityActions({
                   type="text"
                   value={lpAmount}
                   onChange={(e) => {
-                    setLpAmount(e.target.value);
-                    // Clear manual token inputs when LP is manually entered
-                    setRemoveTokenAmount("");
-                    setRemoveEthAmount("");
+                    handleLpAmountChange(e.target.value);
                   }}
                   className="w-full h-16 text-2xl font-medium bg-black/10 rounded-xl px-4 
                     border border-white/[0.05] focus:border-accent-cyan/30 focus:ring-2 focus:ring-accent-cyan/20
@@ -476,13 +360,11 @@ export function LiquidityActions({
 
                 <div className="mt-3 text-xs text-foreground/60 text-center">
                   {(
-                    (parseFloat(lpAmount) / parseFloat(totalLpSupply)) *
+                    (parseFloat(lpAmount) / parseFloat(lpToken.totalSupply)) *
                     100
                   ).toFixed(3)}
                   % of pool
                 </div>
-                {/* {lpAmount && parseFloat(lpAmount) > 0 && (
-                )} */}
               </div>
             </div>
 
@@ -503,15 +385,15 @@ export function LiquidityActions({
                           {token.symbol.toUpperCase()[0]}
                         </span>
                       </div>
-                      <span className="text-sm font-medium">{token.symbol.toUpperCase()}</span>
+                      <span className="text-sm font-medium">
+                        {token.symbol.toUpperCase()}
+                      </span>
                     </div>
                   </div>
                   <input
                     type="text"
-                    value={calculatedTokensToReceive.token}
-                    onChange={(e) =>
-                      handleRemoveTokenAmountChange(e.target.value)
-                    }
+                    value={tokenAmount}
+                    onChange={(e) => handleTokenAmountChange(e.target.value)}
                     className="w-full h-16 text-2xl font-medium bg-black/10 rounded-xl px-4 
                         border border-white/[0.05] focus:border-accent-cyan/30 focus:ring-2 focus:ring-accent-cyan/20
                         placeholder:text-white/20 transition-all duration-300 font-plus-jakarta"
@@ -533,10 +415,8 @@ export function LiquidityActions({
                   </div>
                   <input
                     type="text"
-                    value={calculatedTokensToReceive.eth}
-                    onChange={(e) =>
-                      handleRemoveEthAmountChange(e.target.value)
-                    }
+                    value={ethAmount}
+                    onChange={(e) => handleEthAmountChange(e.target.value)}
                     className="w-full h-16 text-2xl font-medium bg-black/10 rounded-xl px-4 
                         border border-white/[0.05] focus:border-accent-cyan/30 focus:ring-2 focus:ring-accent-cyan/20
                         placeholder:text-white/20 transition-all duration-300 font-plus-jakarta"
@@ -549,9 +429,9 @@ export function LiquidityActions({
               {parseFloat(lpAmount) > 0 && (
                 <div className="text-center space-y-1 pt-2">
                   <div className="text-sm text-foreground/60">
-                    1 {token.symbol} = {(1 / poolRatio).toFixed(6)} ETH
+                    1 {token.symbol} = {(poolRatio).toFixed(6)} ETH
                     <span className="mx-2">•</span>1 ETH ={" "}
-                    {poolRatio.toLocaleString()} {token.symbol}
+                    {(1/poolRatio).toLocaleString()} {token.symbol}
                   </div>
                 </div>
               )}
@@ -559,12 +439,15 @@ export function LiquidityActions({
 
             {/* Remove Liquidity Button */}
             <Button
-              onClick={handlePreviewRemove}
               className="w-full h-14 bg-gradient-to-r from-accent-cyan to-primary-500 hover:from-accent-cyan/90 hover:to-primary-500/90 
                 text-white font-semibold rounded-xl shadow-lg hover:shadow-accent-cyan/25 transition-all duration-300 
                 disabled:from-gray-600/50 disabled:to-gray-700/50 disabled:cursor-not-allowed disabled:text-white/50
                 border border-white/[0.05] backdrop-blur-sm font-plus-jakarta text-base"
               variant="default"
+              onClick={() => {
+                setCurrentTab("remove");
+                setShowPreview(true);
+              }}
               disabled={!lpAmount || parseFloat(lpAmount) === 0 || loading}
             >
               Preview Withdraw
@@ -578,8 +461,8 @@ export function LiquidityActions({
           onConfirm={handleConfirmLiquidity}
           token={token}
           isWithdraw={currentTab === "remove"}
-          tokenAmount={tokenAmount || calculatedTokensToReceive.token}
-          ethAmount={ethAmount || calculatedTokensToReceive.eth}
+          tokenAmount={tokenAmount}
+          ethAmount={ethAmount}
           lpAmount={lpAmount}
           loading={loading}
         />

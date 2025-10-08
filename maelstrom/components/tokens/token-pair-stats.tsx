@@ -2,46 +2,30 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { PoolData } from "@/lib/mock-api";
+import { Pool } from "@/types/pool";
+import { formatEther, parseEther } from "viem";
 
 interface TokenPairStatsProps {
-  poolData: PoolData;
+  poolData: Pool;
 }
 
 export function TokenPairStats({ poolData }: TokenPairStatsProps) {
   const stats = [
     {
       label: "24h Volume",
-      value: `${(
-        Number(poolData.poolStatistics.volume24h.replace(/[^0-9.-]+/g, "")) /
-        3000
-      ).toFixed(2)} ETH`,
-      change: `${
-        poolData.liquidityChange24h >= 0 ? "+" : ""
-      }${poolData.liquidityChange24h.toFixed(1)}%`,
-      positive: poolData.liquidityChange24h >= 0,
+      value: `${Number(formatEther(BigInt(poolData.volume24h))).toFixed(3)} ETH`,
     },
     {
       label: "Total Liquidity",
-      value: `${(
-        Number(poolData.totalLiquidity.replace(/[^0-9.-]+/g, "")) / 3000
-      ).toFixed(2)} ETH`,
-      change: `${
-        poolData.liquidityChange24h >= 0 ? "+" : ""
-      }${poolData.liquidityChange24h.toFixed(1)}%`,
-      positive: poolData.liquidityChange24h >= 0,
+      value: `${Number(formatEther(BigInt(poolData.totalLiquidty))).toFixed(3)} ETH`,
     },
     {
       label: "Buy Price",
-      value: `${(poolData.priceData.current * 1.02).toFixed(4)} ETH`,
-      change: `${
-        poolData.priceData.change24h >= 0 ? "+" : ""
-      }${poolData.priceData.change24h.toFixed(1)}%`,
-      positive: poolData.priceData.change24h >= 0,
+      value: `${Number(formatEther(BigInt(poolData.buyPrice))).toFixed(3)} ETH`,
     },
     {
       label: "Sell Price",
-      value: `${(poolData.priceData.current * 0.98).toFixed(4)} ETH`,
+      value: `${Number(formatEther(BigInt(poolData.sellPrice))).toFixed(3)} ETH`,
       change: "Current",
       positive: true,
     },

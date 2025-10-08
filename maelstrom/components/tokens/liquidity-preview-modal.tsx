@@ -9,13 +9,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Clock, AlertTriangle, Zap } from "lucide-react";
-import { ETH, Token } from "@/lib/mock-api";
+import { Token } from "@/types/token";
 
 interface LiquidityPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  token: Token | ETH
+  token: Token
   isWithdraw: boolean;
   tokenAmount: string;
   ethAmount: string;

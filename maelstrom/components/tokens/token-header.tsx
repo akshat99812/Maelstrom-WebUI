@@ -1,12 +1,10 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Star } from "lucide-react";
-import type { PoolData, Token } from "@/lib/mock-api";
+import { Token } from "@/types/token";
 
 interface TokenHeaderProps {
   token: Token;
-  poolData?: PoolData;
 }
 
 export function TokenHeader({ token }: TokenHeaderProps) {
