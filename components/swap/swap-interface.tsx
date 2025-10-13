@@ -168,8 +168,8 @@ export function SwapInterface() {
       setSwapState((prev) => ({
         tokenIn: prev.tokenOut,
         tokenOut: prev.tokenIn,
-        amountIn: prev.amountOut,
-        amountOut: prev.amountIn,
+        amountIn: "",
+        amountOut: "",
         exchangeRate: prev.exchangeRate, // Keep current rate temporarily
       }));
 
@@ -460,8 +460,7 @@ export function SwapInterface() {
                         <span className="text-white/50 font-medium">Rate</span>
                         <span className="text-white/80 font-medium">
                           1 {swapState.tokenIn!.symbol.toUpperCase()} ={" "}
-                          {swapState.exchangeRate}{" "}
-                          {/*TODO: error to be resolved*/}
+                          {(Number(swapState.amountOut) / Number(swapState.amountIn))}{" "}
                           {swapState.tokenOut!.symbol.toUpperCase()}
                         </span>
                       </div>
