@@ -390,7 +390,7 @@ export class ContractClient implements IContractClient {
                 address: this.contractAddress,
                 fromBlock: BigInt(fromBlock),
                 toBlock: BigInt(toBlock),
-                event: parseAbiItem('event SellTrade(address indexed token, address indexed trader, uint256 ethAmount, uint256 tokenAmount, uint256 sellPrice)'),
+                event: parseAbiItem('event SellTrade(address indexed token, address indexed trader, uint256 tokenAmount, uint256 ethAmount, uint256 sellPrice)'),
                 args: {
                     token: (token?.address as Address),
                     trader: user as Address | undefined

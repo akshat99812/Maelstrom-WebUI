@@ -33,11 +33,7 @@ interface ChartDataPoint {
   timestamp: number;
 }
 
-interface BatchConfig {
-  batchSize: number;
-  maxBatches: number;
-  delayBetweenBatches: number;
-}
+const BLOCKS_PER_FETCH = 5000; // Load 1000 blocks at a time
 
 export function PriceCharts({ token, pool }: PriceChartsProps) {
   const { writeContractAsync } = useWriteContract();
@@ -45,7 +41,7 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentBlock, setCurrentBlock] = useState<number>(0);
+  const [nextBlockToFetch, setNextBlockToFetch] = useState<number | null>(null);
   const [hasMoreData, setHasMoreData] = useState(true);
   const contractClient = useMemo(() => {
     return new ContractClient(
@@ -62,155 +58,97 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
         ...buyTrades.map((trade) => ({
           ...trade,
           type: "buy" as const,
-          price: parseFloat(formatEther(BigInt(trade.buyPrice))),
+          buyPrice: parseFloat(formatEther(BigInt(trade.buyPrice))),
+          sellPrice: 0,
         })),
         ...sellTrades.map((trade) => ({
           ...trade,
           type: "sell" as const,
-          price: parseFloat(formatEther(BigInt(trade.sellPrice))),
+          buyPrice: 0,
+          sellPrice: parseFloat(formatEther(BigInt(trade.sellPrice))),
         })),
       ].sort((a, b) => a.timestamp - b.timestamp);
 
       if (allTrades.length === 0) {
-        // Fallback to current pool prices if no trades
-        const currentBuyPrice = parseFloat(formatEther(BigInt(pool.buyPrice)));
-        const currentSellPrice = parseFloat(
-          formatEther(BigInt(pool.sellPrice))
-        );
-        const now = Date.now();
-
-        return [
-          {
-            time: new Date(now).toISOString(),
-            buyPrice: currentBuyPrice,
-            sellPrice: currentSellPrice,
-            formattedTime: new Date(now).toLocaleTimeString(),
-            timestamp: now,
-          },
-        ];
+        return [];
       }
 
-      // Group trades by time intervals and calculate average prices
-      const intervalMs = 600000; // 10 minutes in milliseconds
-      const groupedData = new Map<
-        number,
-        { buyPrices: number[]; sellPrices: number[]; timestamp: number }
-      >();
+      // Create chart data points from trades
+      // Use the last known price for missing values
+      let lastBuyPrice = parseFloat(formatEther(BigInt(pool.buyPrice)));
+      let lastSellPrice = parseFloat(formatEther(BigInt(pool.sellPrice)));
 
-      allTrades.forEach((trade) => {
-        const intervalKey =
-          Math.floor(trade.timestamp / intervalMs) * intervalMs;
-
-        if (!groupedData.has(intervalKey)) {
-          groupedData.set(intervalKey, {
-            buyPrices: [],
-            sellPrices: [],
-            timestamp: intervalKey,
-          });
+      return allTrades.map((trade) => {
+        if (trade.type === "buy" && trade.buyPrice > 0) {
+          lastBuyPrice = trade.buyPrice;
+        }
+        if (trade.type === "sell" && trade.sellPrice > 0) {
+          lastSellPrice = trade.sellPrice;
         }
 
-        const group = groupedData.get(intervalKey)!;
-        if (trade.type === "buy") {
-          group.buyPrices.push(trade.price);
-        } else {
-          group.sellPrices.push(trade.price);
-        }
+        const tradeDate = new Date(trade.timestamp);
+        return {
+          time: tradeDate.toISOString(),
+          buyPrice: trade.type === "buy" ? trade.buyPrice : lastBuyPrice,
+          sellPrice: trade.type === "sell" ? trade.sellPrice : lastSellPrice,
+          formattedTime: tradeDate.toLocaleString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+          timestamp: trade.timestamp,
+        };
       });
-
-      // Convert to chart data points
-      return Array.from(groupedData.values())
-        .map((group) => {
-          const avgBuyPrice =
-            group.buyPrices.length > 0
-              ? group.buyPrices.reduce((sum, price) => sum + price, 0) /
-                group.buyPrices.length
-              : parseFloat(formatEther(BigInt(pool.buyPrice)));
-
-          const avgSellPrice =
-            group.sellPrices.length > 0
-              ? group.sellPrices.reduce((sum, price) => sum + price, 0) /
-                group.sellPrices.length
-              : parseFloat(formatEther(BigInt(pool.sellPrice)));
-
-          return {
-            time: new Date(group.timestamp).toISOString(),
-            buyPrice: avgBuyPrice,
-            sellPrice: avgSellPrice,
-            formattedTime: new Date(group.timestamp).toLocaleTimeString(),
-            timestamp: group.timestamp,
-          };
-        })
-        .sort((a, b) => a.timestamp - b.timestamp);
     },
     [pool.buyPrice, pool.sellPrice]
   );
 
   const fetchNextBatch = useCallback(async () => {
-    if (!hasMoreData || loading) return;
-
-    // Define batch configuration inside the callback
-    const batchConfig: BatchConfig = {
-      batchSize: 1000, // Blocks per batch
-      maxBatches: 50, // Maximum number of batches total
-      delayBetweenBatches: 100, // ms delay between batches
-    };
+    if (loading || !hasMoreData) return;
 
     setLoading(true);
     setError(null);
 
     try {
       // Get the current block if we don't have it yet
-      let blockToFetch = currentBlock;
-      if (blockToFetch === 0) {
+      let toBlock: number;
+      if (nextBlockToFetch === null) {
         const latestBlock = await publicClient?.getBlockNumber();
         if (!latestBlock) {
           throw new Error("Unable to get current block number");
         }
-        blockToFetch = Number(latestBlock);
-        setCurrentBlock(blockToFetch);
+        toBlock = Number(latestBlock);
+      } else {
+        toBlock = nextBlockToFetch;
       }
 
-      const fromBlock = Math.max(0, blockToFetch - batchConfig.batchSize);
-      const toBlock = blockToFetch;
+      const fromBlock = Math.max(0, toBlock - BLOCKS_PER_FETCH);
 
-      // Check if we've reached the maximum number of batches
-      const totalDataPoints = chartData.length;
-      if (totalDataPoints >= batchConfig.maxBatches * 50) {
-        // Rough estimate
-        setHasMoreData(false);
-        return;
-      }
-
+      // Fetch trades for this block range
       const [buyTrades, sellTrades] = await Promise.all([
         contractClient.getBuyTradeEventLogs(fromBlock, toBlock, token),
         contractClient.getSellTradeEventLogs(fromBlock, toBlock, token),
       ]);
 
-      // If no trades found in this batch, we might have reached the beginning
-      if (buyTrades.length === 0 && sellTrades.length === 0) {
-        setHasMoreData(false);
-        return;
-      }
-
-      // Generate new chart data from this batch
+      // Generate chart data from trades
       const newChartData = generateChartData(buyTrades, sellTrades);
 
-      // Merge with existing data, avoiding duplicates
+      // Add new data to existing data
       setChartData((prevData) => {
-        const existingTimestamps = new Set(
-          prevData.map((point) => point.timestamp)
-        );
-        const uniqueNewData = newChartData.filter(
-          (point) => !existingTimestamps.has(point.timestamp)
-        );
-
-        return [...prevData, ...uniqueNewData].sort(
-          (a, b) => a.timestamp - b.timestamp
-        );
+        const combined = [...prevData, ...newChartData];
+        // Sort by timestamp and remove duplicates
+        const uniqueData = Array.from(
+          new Map(combined.map((item) => [item.timestamp, item])).values()
+        ).sort((a, b) => a.timestamp - b.timestamp);
+        return uniqueData;
       });
-
-      // Update the current block for the next batch
-      setCurrentBlock(fromBlock - 1);
+      // Update next block to fetch
+      if (fromBlock > 0) {
+        setNextBlockToFetch(fromBlock - 1);
+      } else {
+        setHasMoreData(false);
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to fetch trade data";
@@ -224,19 +162,10 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
     contractClient,
     token,
     generateChartData,
-    currentBlock,
+    nextBlockToFetch,
     hasMoreData,
     loading,
-    chartData.length,
   ]);
-
-  const handleRefresh = useCallback(async () => {
-    setChartData([]);
-    setCurrentBlock(0);
-    setHasMoreData(true);
-    setError(null);
-    await fetchNextBatch();
-  }, [fetchNextBatch]);
 
   // Initial data fetch
   useEffect(() => {
@@ -245,6 +174,29 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
 
   const currentBuyPrice = parseFloat(formatEther(BigInt(pool.buyPrice)));
   const currentSellPrice = parseFloat(formatEther(BigInt(pool.sellPrice)));
+
+  // Display data - use chart data if available, otherwise show current pool prices
+  const displayData = useMemo(() => {
+    if (chartData.length > 0) {
+      return chartData;
+    }
+    // Show current pool prices as a single data point when no historical data
+    const now = new Date();
+    return [
+      {
+        time: now.toISOString(),
+        buyPrice: currentBuyPrice,
+        sellPrice: currentSellPrice,
+        formattedTime: now.toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }),
+        timestamp: Date.now(),
+      },
+    ];
+  }, [chartData, currentBuyPrice, currentSellPrice]);
 
   return (
     <div className="space-y-6">
@@ -328,7 +280,7 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
             ) : (
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
+                  <AreaChart data={displayData}>
                     <defs>
                       <linearGradient
                         id="buyGradient"
@@ -369,6 +321,7 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
                         backdropFilter: "blur(16px)",
                       }}
                       labelStyle={{ color: "rgb(148, 163, 184)" }}
+                      labelFormatter={(label) => label}
                       formatter={(value: number) => [
                         `${value.toFixed(8)} ETH`,
                         "Buy Price",
@@ -424,7 +377,7 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
             ) : (
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
+                  <AreaChart data={displayData}>
                     <defs>
                       <linearGradient
                         id="sellGradient"
@@ -465,6 +418,7 @@ export function PriceCharts({ token, pool }: PriceChartsProps) {
                         backdropFilter: "blur(16px)",
                       }}
                       labelStyle={{ color: "rgb(148, 163, 184)" }}
+                      labelFormatter={(label) => label}
                       formatter={(value: number) => [
                         `${value.toFixed(6)} ETH`,
                         "Sell Price",
