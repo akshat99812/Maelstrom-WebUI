@@ -8,7 +8,7 @@ import Image from "next/image";
 
 const navigation = [
   { name: "Swap", href: "/swap" },
-  { name: "Tokens", href: "/tokens" },
+  { name: "Pools", href: "/pools" },
   { name: "Dashboard", href: "/dashboard" },
   { name: "Create Pool", href: "/create" },
 ];

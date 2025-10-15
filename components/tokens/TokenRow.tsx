@@ -15,7 +15,7 @@ export function TokenRow({ poolToken }: TokenRowProps) {
 
   return (
     <Link
-      href={`/tokens/?tokenAddress=${token.address}`}
+      href={`/pools/?tokenAddress=${token.address}`}
     >
       <div
         className="group relative p-4 rounded-lg backdrop-blur-sm border border-white/[0.05] 
