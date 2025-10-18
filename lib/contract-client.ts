@@ -1,5 +1,5 @@
 import { ABI, IContractClient } from "@/types/contract";
-import { InitPool, InitPoolResult, Pool, Reserve, RowPool } from "@/types/pool";
+import { InitPool, InitPoolResult, Pool, PoolFeesEvent, Reserve, RowPool } from "@/types/pool";
 import { LiquidityPoolToken, Token } from "@/types/token";
 import { BuyRequest, BuyResult, BuyTrade, Deposit, DepositRequest, DepositResult, SellRequest, SellResult, SellTrade, SwapRequest, SwapResult, SwapTrade, Withdraw, WithdrawRequest, WithdrawResult } from "@/types/trades";
 import { Address, erc20Abi, formatEther, parseAbiItem, parseEther } from "viem";
@@ -748,19 +748,19 @@ export class ContractClient implements IContractClient {
         }
     }
 
-    async getUserLiquidity(user: Address) : Promise<string> {
-        try {
-            const data = await this.publicClient?.readContract({
-                address: this.contractAddress,
-                abi: ABI,
-                functionName: 'liquidityProvided',
-                args: [user]
-            });
-            return data!.toString();
-        } catch (error) {
-            throw new Error(`Error fetching user liquidity: ${(error as Error).message}`);
-        }
-    }
+    // async getUserLiquidity(user: Address) : Promise<string> {
+    //     try {
+    //         const data = await this.publicClient?.readContract({
+    //             address: this.contractAddress,
+    //             abi: ABI,
+    //             functionName: 'liquidityProvided',
+    //             args: [user]
+    //         });
+    //         return data!.toString();
+    //     } catch (error) {
+    //         throw new Error(`Error fetching user liquidity: ${(error as Error).message}`);
+    //     }
+    // }
 
     async getUserPools(user: Address, startIndex: number, offset: number): Promise<RowPool[]> {
         try {
@@ -808,7 +808,7 @@ export class ContractClient implements IContractClient {
                 abi: ABI,
                 functionName: 'getTotalPools',
                 args: []
-            })
+            });
             return Number(data);
         } catch (error) {
             throw new Error(`Error fetching pool count: ${(error as Error).message}`);
@@ -822,10 +822,68 @@ export class ContractClient implements IContractClient {
                 abi: ABI,
                 functionName: 'getUserTotalPools',
                 args: [user]
-            })
+            });
             return Number(data);
         } catch (error) {
             throw new Error(`Error fetching user pool count: ${(error as Error).message}`);
         }
+    }
+
+    async getTotalFees(): Promise<string> {
+        try {
+            const data = await this.publicClient?.readContract({
+                address: this.contractAddress,
+                abi: ABI,
+                functionName: 'totalFees',
+                args: []
+            });
+            return String(data);
+        } catch (error) {
+            throw new Error(`Error fetching total fee: ${(error as Error).message}`);
+        }
+    }
+
+    async getTotalPoolFee(token: Token): Promise<string> {
+        try {
+            const data = await this.publicClient?.readContract({
+                address: this.contractAddress,
+                abi: ABI,
+                functionName: 'totalPoolFees',
+                args: [token.address]
+            });
+            return String(data);
+        } catch (error) {
+            throw new Error(`Error fetching total pool fee: ${(error as Error).message}`);
+        }
+    }
+
+    async getPoolFeeEvents(token: Token, startIndex: number, endIndex: number): Promise<PoolFeesEvent[]> {
+        try {
+            const data = await this.publicClient?.readContract({
+                address: this.contractAddress,
+                abi: ABI,
+                functionName: 'getPoolFeeList',
+                args: [token.address, BigInt(startIndex), BigInt(endIndex)]
+            });
+            let result: PoolFeesEvent[] = [];
+            for (let i = 0; i < (data as any[]).length; i++) {
+                result.push({
+                    timestamp: Number((data as any[])[i][1]) * 1000,
+                    fee: (data as any[])[i][0].toString(),
+                });
+            }
+            return result;
+        } catch (error) {
+            throw new Error(`Error fetching pool fee events: ${(error as Error).message}`);
+        }
+    }
+
+    public getYield(feeEvents: PoolFeesEvent[]): number {
+        let totalFees = 0;
+        feeEvents.forEach(event => {
+            totalFees += Number(event.fee);
+        });
+        const totalTime = (feeEvents[feeEvents.length - 1].timestamp - feeEvents[0].timestamp) / (1000 * 60 * 60 * 24); //days
+        return totalFees / totalTime;
     }
 }
