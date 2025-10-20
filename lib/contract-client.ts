@@ -903,7 +903,7 @@ export class ContractClient implements IContractClient {
                 functionName: 'getPoolFeeList',
                 args: [token.address, BigInt(startIndex), BigInt(endIndex)]
             });
-            let result: PoolFeesEvent[] = [];
+            const result: PoolFeesEvent[] = [];
             if(!data) throw new Error("No data returned from readContract");
             for (let i = 0; i < (data).length; i++) {
                 result.push({

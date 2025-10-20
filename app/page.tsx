@@ -1,6 +1,5 @@
 import { HeroSection } from "@/components/landing/hero-section"
 import { ValuePropsSection } from "@/components/landing/value-props-section"
-import { StatsSection } from "@/components/landing/stats-section"
 
 export default function LandingPage() {
   return (

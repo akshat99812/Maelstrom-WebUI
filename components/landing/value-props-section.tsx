@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { Waves, Shield, Zap, Users, Repeat2 } from "lucide-react"
+import { Waves, Repeat2 } from "lucide-react"
 import { RippleEffect } from "@/components/ui/ripple-effect"
 
 const valueProps = [

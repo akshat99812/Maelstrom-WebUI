@@ -7,7 +7,6 @@ import { Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { ContractClient } from "@/lib/contract-client";
-import { CONTRACT_ADDRESS } from "@/types/contract";
 import { RowPool } from "@/types/pool";
 import { debounce } from "lodash";
 import { Input } from "../ui/input";
@@ -186,7 +185,6 @@ export function TokenList() {
       </div>
     );
   }
-  const displayedTokens = filteredTokens;
 
   return (
     <div className="space-y-4 animate-fade-in">

@@ -8,11 +8,10 @@ import { toast } from "sonner";
 import { ArrowDownUp, HelpCircle, Settings } from "lucide-react";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { ContractClient } from "@/lib/contract-client";
-import { CONTRACT_ADDRESS } from "@/types/contract";
 import { ETH, Token } from "@/types/token";
 import { SellRequest, SellResult } from "@/types/trades";
 import { RowPool } from "@/types/pool";
-import { formatEther, parseEther } from "viem";
+import { formatEther } from "viem";
 import {
   Tooltip,
   TooltipContent,

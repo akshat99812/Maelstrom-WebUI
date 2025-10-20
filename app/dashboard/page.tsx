@@ -26,9 +26,7 @@ export default function DashboardPage() {
     );
   const { address } = useAccount();
   const [totalPools, setTotalPools] = useState<number>(0);
-  // const [totalLiquidity, setTotalLiquidity] = useState<string>("0");
   const [portfolioValue, setPortfolioValue] = useState<string>("0");
-  // const [totalProfit, setTotalProfit] = useState<string>("0");
   const [events, setEvents] = useState<(Deposit | Withdraw)[]>([]);
   const [pools, setPools] = useState<RowPool[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -112,14 +110,6 @@ export default function DashboardPage() {
       total += Number(proportion) * Number(pool.totalLiquidity);
     }
     return formatEther(BigInt(total));
-  };
-
-  const calculateProfit = (portfolio: string, liquidity: string) => {
-    const portfolioNum = Number(portfolio);
-    const liquidityNum = Number(liquidity);
-    if (liquidityNum === 0) return "0.00";
-    const gain = ((portfolioNum - liquidityNum) / liquidityNum) * 100;
-    return gain.toFixed(2);
   };
 
   useEffect(() => {

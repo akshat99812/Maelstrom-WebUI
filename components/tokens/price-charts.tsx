@@ -15,10 +15,9 @@ import { Token } from "@/types/token";
 import { Pool } from "@/types/pool";
 import { BuyTrade, SellTrade } from "@/types/trades";
 import { ContractClient } from "@/lib/contract-client";
-import { CONTRACT_ADDRESS } from "@/types/contract";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
-import { RefreshCw, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { RefreshCw, Clock, TrendingUp } from "lucide-react";
 
 interface PriceChartsProps {
   token: Token;

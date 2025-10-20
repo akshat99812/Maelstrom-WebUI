@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Clock, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Token } from "@/types/token";
 
 interface LiquidityPreviewModalProps {

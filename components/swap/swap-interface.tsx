@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TokenSelector } from "@/components/swap/token-selector";
 import { SwapPreviewModal } from "@/components/swap/swap-preview-modal";
@@ -14,7 +14,7 @@ import { ContractClient } from "@/lib/contract-client";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { Token } from "@/types/token";
 import { BuyRequest, SellRequest, SwapRequest } from "@/types/trades";
-import { ETH_ROW_POOL, Reserve, RowPool } from "@/types/pool";
+import { ETH_ROW_POOL, RowPool } from "@/types/pool";
 import { formatEther, parseEther } from "viem";
 import {
   Tooltip,
@@ -22,7 +22,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { max } from "lodash";
 
 interface SwapState {
   tokenIn: Token | undefined;

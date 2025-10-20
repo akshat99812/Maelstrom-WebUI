@@ -10,10 +10,9 @@ import { Token } from "@/types/token";
 import { BuyRequest, BuyResult } from "@/types/trades";
 import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { ContractClient } from "@/lib/contract-client";
-import { CONTRACT_ADDRESS } from "@/types/contract";
 import { ETH } from "@/types/token";
 import { RowPool } from "@/types/pool";
-import { formatEther, parseEther } from "viem";
+import { formatEther } from "viem";
 import {
   Tooltip,
   TooltipContent,
