@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import CircularText from "@/components/CircularText";
@@ -9,6 +9,7 @@ import { WaveRippleCanvas } from "../ui/wave-ripple-canvas";
 
 export function HeroSection() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const sectionRef = useRef(null);
   const [textPositions, setTextPositions] = useState<
     Array<{
       text: string;
@@ -22,9 +23,17 @@ export function HeroSection() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      const x = e.clientX / window.innerWidth;
-      const y = e.clientY / window.innerHeight;
-      setMousePosition({ x, y });
+      if (!sectionRef.current) return;
+      const rect = sectionRef.current.getBoundingClientRect();
+
+      // Now accounts for scroll automatically
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+
+      setMousePosition({
+        x: Math.max(0, Math.min(1, x)),
+        y: Math.max(0, Math.min(1, y))
+      });
     };
 
     const calculateTextPositions = () => {
@@ -32,15 +41,15 @@ export function HeroSection() {
       const centerX = window.innerWidth / 2;
       const isMobile = window.innerWidth < 768;
       const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
-      
+
       const headingSize = isMobile ? 36 : isTablet ? 70 : 100;
       const subheadingSize = isMobile ? 14 : isTablet ? 22 : 28;
       const verticalSpacing = isMobile ? 0.6 : 1;
-      
+
       // Add padding for mobile to prevent text overflow
       const horizontalPadding = isMobile ? 20 : 0;
       const maxWidth = window.innerWidth - (horizontalPadding * 2);
-      
+
       setTextPositions([
         {
           text: "Auction-Based",
@@ -86,7 +95,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#001233]">
+    <section ref={sectionRef} className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#001233]">
       {/* Wave Ripple Effect */}
       <div className="absolute inset-0 z-10 pointer-events-none">
         <WaveRippleCanvas

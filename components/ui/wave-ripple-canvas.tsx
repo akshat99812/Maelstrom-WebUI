@@ -17,9 +17,9 @@ interface WaveRippleCanvasProps {
   }>
 }
 
-export function WaveRippleCanvas({ 
-  mousePosition, 
-  className = "", 
+export function WaveRippleCanvas({
+  mousePosition,
+  className = "",
   texts = []
 }: WaveRippleCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -90,12 +90,12 @@ export function WaveRippleCanvas({
       textCanvas.width = window.innerWidth
       textCanvas.height = window.innerHeight
       const ctx = textCanvas.getContext('2d', { willReadFrequently: true })
-      
+
       if (ctx) {
         ctx.fillStyle = 'black'
         ctx.fillRect(0, 0, window.innerWidth, window.innerHeight)
         ctx.fillStyle = 'white'
-        
+
         // Draw each text with proper font settings
         texts.forEach(({ text, size, x, y, font = 'Inter', weight = '400' }) => {
           ctx.font = `${weight} ${size}px ${font}`
@@ -178,12 +178,12 @@ export function WaveRippleCanvas({
       const handleResize = () => {
         const width = window.innerWidth
         const height = window.innerHeight
-        
+
         renderer.setSize(width, height)
         rtARef.current?.setSize(width, height)
         rtBRef.current?.setSize(width, height)
         simMaterial.uniforms.resolution.value.set(width, height)
-        
+
         // Update text texture
         textCanvas.width = width
         textCanvas.height = height
@@ -191,14 +191,14 @@ export function WaveRippleCanvas({
           ctx.fillStyle = 'black'
           ctx.fillRect(0, 0, width, height)
           ctx.fillStyle = 'white'
-          
+
           texts.forEach(({ text, size, x, y, font = 'Inter', weight = '400' }) => {
             ctx.font = `${weight} ${size}px ${font}`
             ctx.textAlign = 'center'
             ctx.textBaseline = 'middle'
             ctx.fillText(text, x, y)
           })
-          
+
           textTexture.needsUpdate = true
         }
       }
