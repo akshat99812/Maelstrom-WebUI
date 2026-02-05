@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TokenSelector } from "@/components/swap/token-selector";
 import { SwapPreviewModal } from "@/components/swap/swap-preview-modal";
@@ -67,6 +67,7 @@ export function SwapInterface() {
   const [slippageTolerance, setSlippageTolerance] = useState<number>(0); // Start at 0 for zero slippage mode
   const [validationError, setValidationError] = useState<string>("");
   const [zeroSlippageMode, setZeroSlippageMode] = useState<boolean>(true); // Default to zero slippage mode
+  const swapJustHappenedRef = useRef(false);
 
   const calculateOutput = (amount: string, isInput: boolean) => {
     setValidationError("");
@@ -250,20 +251,19 @@ export function SwapInterface() {
     setIsSwapping(true);
     setValidationError(""); // Clear validation error when swapping
     try {
-      // Store the current tokens before swapping
       const currentTokenIn = swapState.tokenIn;
       const currentTokenOut = swapState.tokenOut;
 
-      // Swap the tokens in state first
+      // Swap tokens but preserve amounts; recalc will run after rates update (useEffect)
       setSwapState((prev) => ({
+        ...prev,
         tokenIn: prev.tokenOut,
         tokenOut: prev.tokenIn,
-        amountIn: "",
-        amountOut: "",
-        exchangeRate: prev.exchangeRate, // Keep current rate temporarily
+        // Keep amountIn/amountOut so we can recalc for new direction after prices load
       }));
+      swapJustHappenedRef.current = true;
 
-      // Now update the exchange rates for the swapped tokens
+      // Update exchange rates for the swapped tokens (async)
       await handletokenInChange(currentTokenOut);
       await handletokenOutChange(currentTokenIn);
     } catch (error) {
@@ -272,6 +272,18 @@ export function SwapInterface() {
       setIsSwapping(false);
     }
   };
+
+  // After swap, recalc the other amount once new prices are available
+  useEffect(() => {
+    if (!swapJustHappenedRef.current) return;
+    if (!swapState.tokenIn || !swapState.tokenOut || !tokenInSellPrice || !tokenOutBuyPrice) return;
+    swapJustHappenedRef.current = false;
+    if (swapState.amountIn) {
+      setSwapState((prev) => ({ ...prev, amountOut: calculateOutput(prev.amountIn, true) }));
+    } else if (swapState.amountOut) {
+      setSwapState((prev) => ({ ...prev, amountIn: calculateOutput(prev.amountOut, false) }));
+    }
+  }, [swapState.tokenIn, swapState.tokenOut, tokenInSellPrice, tokenOutBuyPrice, swapState.amountIn, swapState.amountOut]);
 
   const handlePreviewSwap = () => {
     if (
