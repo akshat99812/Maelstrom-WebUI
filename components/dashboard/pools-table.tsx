@@ -1,4 +1,6 @@
 "use client";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { TokenRow } from "../tokens/TokenRow";
 import { TokenRowSkeleton } from "../tokens/TokenRowSkeleton";
 import { RowPool } from "@/types/pool";
@@ -39,9 +41,9 @@ export function PoolsTable(
             before:absolute before:inset-0 before:bg-background-800/30 before:-z-10"
           >
             <p className="text-muted-foreground/70">No active pools found</p>
-            <button className="mt-4 text-sm text-accent hover:text-accent-foreground transition-colors">
-              Explore Available Pools
-            </button>
+            <Button asChild className="mt-4">
+              <Link href="/pools">Explore Available Pools</Link>
+            </Button>
           </div>
         )}
       </div>
